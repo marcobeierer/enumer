@@ -8,10 +8,19 @@ const stringValueToNameMap = `func %[1]sString(s string) (%[1]s, error) {
 	if val, ok := _%[1]sNameToValue_map[s]; ok {
 		return val, nil
 	}
-	if val == "" && _%[1]sNameToValue_map[0] > 0 { // if first value is greater 0, empty string means 0
+	if s == "" && _%[1]sHasNoNullValue() { // fix for case when db field is NOT NULL, then an empty string is returned from db for 0 values
 		return 0, nil
 	}
 	return 0, fmt.Errorf("%%s does not belong to %[1]s values", s)
+}
+
+func _%[1]sHasNoNullValue() bool {
+	for _, val := range _%[1]sNameToValue_map {
+		if val == 0 {
+			return false
+		}
+	}
+	return true
 }
 `
 
