@@ -8,6 +8,9 @@ const stringValueToNameMap = `func %[1]sString(s string) (%[1]s, error) {
 	if val, ok := _%[1]sNameToValue_map[s]; ok {
 		return val, nil
 	}
+	if val == "" && _%[1]sNameToValue_map[0] > 0 { // if first value is greater 0, empty string means 0
+		return 0, nil
+	}
 	return 0, fmt.Errorf("%%s does not belong to %[1]s values", s)
 }
 `
