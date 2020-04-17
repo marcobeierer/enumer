@@ -81,10 +81,11 @@ import (
 )
 
 var (
-	typeNames = flag.String("type", "", "comma-separated list of type names; must be set")
-	sql       = flag.Bool("sql", false, "if true, the Scanner and Valuer interface will be implemented.")
-	json      = flag.Bool("json", false, "if true, json marshaling methods will be generated. Default: false")
-	output    = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
+	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
+	sql         = flag.Bool("sql", false, "if true, the Scanner and Valuer interface will be implemented.")
+	json        = flag.Bool("json", false, "if true, json marshaling methods will be generated. Default: false")
+	emptyString = flag.Bool("empty_string", false, "if true, String() returns an empty string instead of Type(0)")
+	output      = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
 )
 
 // Usage is a replacement usage function for the flags package.
@@ -146,7 +147,7 @@ func main() {
 
 	// Run generate for each type.
 	for _, typeName := range types {
-		g.generate(typeName, *json)
+		g.generate(typeName, *json, *emptyString)
 	}
 
 	// Format the output.
@@ -282,7 +283,7 @@ func (pkg *Package) check(fs *token.FileSet, astFiles []*ast.File) {
 }
 
 // generate produces the String method for the named type.
-func (g *Generator) generate(typeName string, includeJSON bool) {
+func (g *Generator) generate(typeName string, includeJSON bool, emptyString bool) {
 	values := make([]Value, 0, 100)
 	for _, file := range g.pkg.files {
 		// Set the state for this run of the walker.
@@ -313,7 +314,7 @@ func (g *Generator) generate(typeName string, includeJSON bool) {
 	const runsThreshold = 10
 	switch {
 	case len(runs) == 1:
-		g.buildOneRun(runs, typeName)
+		g.buildOneRun(runs, typeName, emptyString)
 	case len(runs) <= runsThreshold:
 		g.buildMultipleRuns(runs, typeName)
 	default:
@@ -563,7 +564,7 @@ func (g *Generator) declareNameVars(runs [][]Value, typeName string, suffix stri
 }
 
 // buildOneRun generates the variables and String method for a single run of contiguous values.
-func (g *Generator) buildOneRun(runs [][]Value, typeName string) {
+func (g *Generator) buildOneRun(runs [][]Value, typeName string, emptyString bool) {
 	values := runs[0]
 	g.Printf("\n")
 	g.declareIndexAndNameVar(values, typeName)
@@ -573,9 +574,17 @@ func (g *Generator) buildOneRun(runs [][]Value, typeName string) {
 		lessThanZero = "i < 0 || "
 	}
 	if values[0].value == 0 { // Signed or unsigned, 0 is still 0.
-		g.Printf(stringOneRun, typeName, usize(len(values)), lessThanZero)
+		if emptyString {
+			g.Printf(stringOneRunEmptyString, typeName, usize(len(values)), lessThanZero)
+		} else {
+			g.Printf(stringOneRun, typeName, usize(len(values)), lessThanZero)
+		}
 	} else {
-		g.Printf(stringOneRunWithOffset, typeName, values[0].String(), usize(len(values)), lessThanZero)
+		if emptyString {
+			g.Printf(stringOneRunWithOffsetEmptyString, typeName, values[0].String(), usize(len(values)), lessThanZero)
+		} else {
+			g.Printf(stringOneRunWithOffset, typeName, values[0].String(), usize(len(values)), lessThanZero)
+		}
 	}
 }
 
@@ -585,6 +594,16 @@ func (g *Generator) buildOneRun(runs [][]Value, typeName string) {
 //	[3]: less than zero check (for signed types)
 const stringOneRun = `func (i %[1]s) String() string {
 	if %[3]si >= %[1]s(len(_%[1]s_index)-1) {
+		return fmt.Sprintf("%[1]s(%%d)", i)
+	}
+	return _%[1]s_name[_%[1]s_index[i]:_%[1]s_index[i+1]]
+}
+`
+const stringOneRunEmptyString = `func (i %[1]s) String() string {
+	if %[3]si >= %[1]s(len(_%[1]s_index)-1) {
+		if i == 0 {
+			return ""
+		}
 		return fmt.Sprintf("%[1]s(%%d)", i)
 	}
 	return _%[1]s_name[_%[1]s_index[i]:_%[1]s_index[i+1]]
@@ -601,6 +620,17 @@ const stringOneRun = `func (i %[1]s) String() string {
 const stringOneRunWithOffset = `func (i %[1]s) String() string {
 	i -= %[2]s
 	if %[4]si >= %[1]s(len(_%[1]s_index)-1) {
+		return fmt.Sprintf("%[1]s(%%d)", i + %[2]s)
+	}
+	return _%[1]s_name[_%[1]s_index[i] : _%[1]s_index[i+1]]
+}
+`
+const stringOneRunWithOffsetEmptyString = `func (i %[1]s) String() string {
+	i -= %[2]s
+	if %[4]si >= %[1]s(len(_%[1]s_index)-1) {
+		if i + %[2]s == 0 {
+			return ""
+		}
 		return fmt.Sprintf("%[1]s(%%d)", i + %[2]s)
 	}
 	return _%[1]s_name[_%[1]s_index[i] : _%[1]s_index[i+1]]
