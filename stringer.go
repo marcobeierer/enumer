@@ -2,12 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build go1.5
 // +build go1.5
 
 // Stringer is a tool to automate the creation of methods that satisfy the fmt.Stringer
 // interface. Given the name of a (signed or unsigned) integer type T that has constants
 // defined, stringer will create a new self-contained Go source file implementing
+//
 //	func (t T) String() string
+//
 // The file is created in the same package and directory as the package that defines T.
 // It has helpful defaults designed for use with go generate.
 //
@@ -57,7 +60,6 @@
 // generate methods for multiple types. The default output file is t_string.go,
 // where t is the lower-cased name of the first type listed. It can be overridden
 // with the -output flag.
-//
 package main
 
 import (
@@ -83,6 +85,7 @@ import (
 var (
 	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
 	sql         = flag.Bool("sql", false, "if true, the Scanner and Valuer interface will be implemented.")
+	ent         = flag.Bool("ent", false, "if true, the ent Values interface will be implemented.")
 	json        = flag.Bool("json", false, "if true, json marshaling methods will be generated. Default: false")
 	emptyString = flag.Bool("empty_string", false, "if true, String() returns an empty string instead of Type(0)")
 	output      = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
@@ -330,6 +333,10 @@ func (g *Generator) generate(typeName string, includeJSON bool, emptyString bool
 	// SQL
 	if *sql {
 		g.addValueAndScanMethod(typeName)
+	}
+
+	if *ent {
+		g.addValuesMethod(runs, typeName)
 	}
 }
 
@@ -589,6 +596,7 @@ func (g *Generator) buildOneRun(runs [][]Value, typeName string, emptyString boo
 }
 
 // Arguments to format are:
+//
 //	[1]: type name
 //	[2]: size of index element (8 for uint8 etc.)
 //	[3]: less than zero check (for signed types)

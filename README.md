@@ -72,7 +72,7 @@ The generated code is exactly the same as the Stringer tool plus the mentioned a
 The usage of Enumer is the same as Stringer, so you can refer to the [Stringer docs](https://godoc.org/golang.org/x/tools/cmd/stringer)
 for more information.
 
-There are two flags added: `json` and `sql`. If the json flag is set to true (i.e. `enumer -type=Pill -json`), 
+There are three flags added: `json`, `sql` and `ent`. If the json flag is set to true (i.e. `enumer -type=Pill -json`), 
 the JSON related methods will be generated. And if the sql flag is set to true, the Scanner and Valuer interface will 
 be implemented to seamlessly use the enum in a database model.
 
